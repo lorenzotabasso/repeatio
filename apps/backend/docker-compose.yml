@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  audio-microservice:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+    environment:
+      - UPLOAD_DIR=uploads
+      - OUTPUT_DIR=outputs
+      - DEFAULT_PAUSE_DURATION=5000
+      - DEFAULT_SILENCE_DURATION=1000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s 

@@ -28,7 +28,7 @@ class AudioService:
                 missing.append(tool)
         
         if missing:
-            print(f"❌ Error: The following tools are missing: {', '.join(missing)}")
+            print(f"Error: The following tools are missing: {', '.join(missing)}")
             return False, missing
         return True, []
     
@@ -80,13 +80,18 @@ class AudioService:
             
             for index, row in df.iterrows():
                 try:
+                    sentence_number = index + 1
+                    print(f"Processing sentence {sentence_number}:")
+                    
                     sentences = []
                     for lang_config in languages:
                         sentence = str(row[f'lang_{lang_config.language_code.value}']).strip()
                         sentence = re.sub(r'[,.](?=\s)', '', sentence)
-                        sentences.append(f"{lang_config.flag} {sentence}")
+                        language_name = settings.SUPPORTED_LANGUAGES[lang_config.language_code.value]
+                        sentences.append(f"  {language_name}: {sentence}")
                     
-                    print(" | ".join(sentences))
+                    for sentence_info in sentences:
+                        print(sentence_info)
                     
                     # Generate audio for each language
                     for lang_config in languages:
@@ -101,13 +106,13 @@ class AudioService:
                             final_audio += pause1sec
                             
                 except Exception as e:
-                    print(f"❌ Error in sentence {index + 1}: {e}")
+                    print(f"Error in sentence {index + 1}: {e}")
                     continue
             
             # Save the final audio
             output_path = Path(settings.OUTPUT_DIR) / output_audio
             final_audio.export(str(output_path), format="mp3")
-            print(f"✅ Audio saved as: {output_path}")
+            print(f"Audio saved as: {output_path}")
             
             return str(output_path)
             

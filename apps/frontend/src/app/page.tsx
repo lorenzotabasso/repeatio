@@ -1,11 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ProcessingStatus {
   status: 'idle' | 'uploading' | 'processing' | 'completed' | 'error';
   message: string;
   progress?: number;
+}
+
+interface AudioFile {
+  filename: string;
+  size: number;
+  created: number;
 }
 
 export default function Home() {
@@ -16,6 +22,7 @@ export default function Home() {
     status: 'idle',
     message: 'Ready to process CSV file'
   });
+  const [generatedFiles, setGeneratedFiles] = useState<AudioFile[]>([]);
 
   const languages = [
     { code: 'en', name: 'English' },
@@ -30,6 +37,8 @@ export default function Home() {
     { code: 'zh', name: 'Chinese' }
   ];
 
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.type === 'text/csv') {
@@ -43,6 +52,18 @@ export default function Home() {
         status: 'error',
         message: 'Please select a valid CSV file'
       });
+    }
+  };
+
+  const fetchGeneratedFiles = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/audio/files`);
+      if (response.ok) {
+        const data = await response.json();
+        setGeneratedFiles(data.files || []);
+      }
+    } catch (error) {
+      console.error('Error fetching files:', error);
     }
   };
 
@@ -79,47 +100,83 @@ export default function Home() {
     });
 
     try {
-      // Simulate file upload
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const formData = new FormData();
+      formData.append('csv_file', selectedFile);
       
+      // Add request as a JSON string
+      const requestData = {
+        languages: [
+          { column_index: 0, language_code: firstLanguage, flag: '🇮🇹' },
+          { column_index: 1, language_code: secondLanguage, flag: '🇷🇺' }
+        ],
+        output_filename: `output_${Date.now()}.mp3`,
+        pause_duration: 5000,
+        silence_duration: 1000
+      };
+      
+      formData.append('request', JSON.stringify(requestData));
+
       setProcessingStatus({
         status: 'processing',
         message: 'Processing CSV and generating audio...',
         progress: 25
       });
 
-      // Simulate processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setProcessingStatus({
-        status: 'processing',
-        message: 'Generating audio files...',
-        progress: 50
+      const response = await fetch(`${API_BASE_URL}/api/v1/audio/csv-to-audio`, {
+        method: 'POST',
+        body: formData
       });
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setProcessingStatus({
-        status: 'processing',
-        message: 'Finalizing audio generation...',
-        progress: 75
-      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setProcessingStatus({
-        status: 'completed',
-        message: 'Audio generation completed successfully!',
-        progress: 100
-      });
+      const result = await response.json();
+
+      if (result.success) {
+        setProcessingStatus({
+          status: 'completed',
+          message: 'Audio generation completed successfully!',
+          progress: 100
+        });
+        
+        // Refresh the list of generated files
+        await fetchGeneratedFiles();
+      } else {
+        throw new Error(result.error || 'Unknown error occurred');
+      }
 
     } catch (error) {
+      console.error('Processing error:', error);
       setProcessingStatus({
         status: 'error',
-        message: 'An error occurred during processing'
+        message: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`
       });
     }
   };
+
+  const handleDownloadFile = (filename: string) => {
+    window.open(`${API_BASE_URL}/api/v1/audio/download/${filename}`, '_blank');
+  };
+
+  const handleDeleteFile = async (filename: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/audio/files/${filename}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        await fetchGeneratedFiles();
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error);
+    }
+  };
+
+  // Load generated files on component mount
+  useEffect(() => {
+    fetchGeneratedFiles();
+  }, []);
 
   const getStatusColor = (status: ProcessingStatus['status']) => {
     switch (status) {
@@ -145,7 +202,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg p-8">
           <h1 className="text-3xl font-bold text-center text-gray-800 mb-8">
             CSV Audio Generator
@@ -240,7 +297,7 @@ export default function Home() {
           </div>
 
           {/* Status Display */}
-          <div className="bg-gray-50 rounded-lg p-4">
+          <div className="bg-gray-50 rounded-lg p-4 mb-8">
             <div className="flex items-center mb-2">
               <span className="text-2xl mr-3">{getStatusIcon(processingStatus.status)}</span>
               <span className={`font-medium ${getStatusColor(processingStatus.status)}`}>
@@ -259,6 +316,45 @@ export default function Home() {
                 <p className="text-sm text-gray-600 mt-1">
                   Progress: {processingStatus.progress}%
                 </p>
+              </div>
+            )}
+          </div>
+
+          {/* Generated Files Section */}
+          <div className="border-t pt-8">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Generated Audio Files</h2>
+            {generatedFiles.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No audio files generated yet</p>
+            ) : (
+              <div className="space-y-3">
+                {generatedFiles.map((file) => (
+                  <div key={file.filename} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center">
+                      <span className="text-2xl mr-3">🎵</span>
+                      <div>
+                        <p className="font-medium text-gray-800">{file.filename}</p>
+                        <p className="text-sm text-gray-500">
+                          Size: {(file.size / 1024).toFixed(1)} KB | 
+                          Created: {new Date(file.created * 1000).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleDownloadFile(file.filename)}
+                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
+                      >
+                        Download
+                      </button>
+                      <button
+                        onClick={() => handleDeleteFile(file.filename)}
+                        className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

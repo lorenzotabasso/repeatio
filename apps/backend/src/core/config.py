@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     DEFAULT_SILENCE_DURATION: int = 1000  # milliseconds
     
     # Supported Languages
-    SUPPORTED_LANGUAGES = {
+    SUPPORTED_LANGUAGES: dict[str, str] = {
         'it': 'Italian',
         'ru': 'Russian',
         'en': 'English',

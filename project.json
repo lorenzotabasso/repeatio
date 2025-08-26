@@ -1,0 +1,87 @@
+{
+  "name": "repeatio",
+  "$schema": "./node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": ".",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx build frontend",
+          "nx build backend"
+        ],
+        "parallel": true
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx serve frontend",
+          "nx serve backend"
+        ],
+        "parallel": true
+      }
+    },
+    "docker-build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx docker-build frontend",
+          "nx docker-build backend"
+        ],
+        "parallel": true
+      }
+    },
+    "docker-compose-up": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose up -d",
+        "cwd": "."
+      }
+    },
+    "docker-compose-down": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose down",
+        "cwd": "."
+      }
+    },
+    "docker-compose-build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose build --no-cache",
+        "cwd": "."
+      }
+    },
+    "docker-compose-logs": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose logs -f",
+        "cwd": "."
+      }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx serve frontend",
+          "nx serve backend"
+        ],
+        "parallel": true
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx lint frontend",
+          "nx lint backend"
+        ],
+        "parallel": true
+      }
+    }
+  },
+  "tags": []
+}

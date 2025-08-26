@@ -71,7 +71,7 @@ async def text_to_audio(
 @router.post("/csv-to-audio", response_model=AudioGenerationResponse)
 async def csv_to_audio(
     csv_file: UploadFile = File(...),
-    request: AudioGenerationRequest = None,
+    request: str = None,
     audio_service: AudioService = Depends(get_audio_service)
 ):
     """Convert CSV file with sentences to audio"""
@@ -98,17 +98,27 @@ async def csv_to_audio(
             content = await csv_file.read()
             await f.write(content)
         
-        # Use default request if none provided
+        # Parse request from JSON string or use default
+        import json
         if request is None:
-            request = AudioGenerationRequest()
+            request_obj = AudioGenerationRequest()
+        else:
+            try:
+                request_data = json.loads(request)
+                request_obj = AudioGenerationRequest(**request_data)
+            except (json.JSONDecodeError, ValueError) as e:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Invalid request format: {str(e)}"
+                )
         
         # Process CSV to audio
         output_file = audio_service.process_csv_to_audio(
             csv_file_path=str(upload_path),
-            output_audio=request.output_filename,
-            languages=request.languages,
-            pause_duration=request.pause_duration,
-            silence_duration=request.silence_duration
+            output_audio=request_obj.output_filename,
+            languages=request_obj.languages,
+            pause_duration=request_obj.pause_duration,
+            silence_duration=request_obj.silence_duration
         )
         
         # Clean up uploaded file
